@@ -1,8 +1,15 @@
+# coding=utf-8
 '''
 Created on Mar 8, 2011
 
 @author: Peter
 '''
+#-----------------------------------------------------
+
+#   学习时间：2016-06-01
+#   语言：Python 2.7.6
+#   环境：linux（ubuntu14.04）
+#-----------------------------------------------------
 from numpy import *
 from numpy import linalg as la
 
@@ -27,7 +34,7 @@ def loadExData2():
            [0, 0, 0, 2, 0, 2, 5, 0, 0, 1, 2],
            [0, 0, 0, 0, 5, 0, 0, 0, 0, 4, 0],
            [1, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0]]
-    
+
 def ecludSim(inA,inB):
     return 1.0/(1.0 + la.norm(inA - inB))
 
@@ -78,6 +85,7 @@ def recommend(dataMat, user, N=3, simMeas=cosSim, estMethod=standEst):
     unratedItems = nonzero(dataMat[user,:].A==0)[1]#find unrated items 
     if len(unratedItems) == 0: return 'you rated everything'
     itemScores = []
+
     for item in unratedItems:
         estimatedScore = estMethod(dataMat, user, simMeas, item)
         itemScores.append((item, estimatedScore))
@@ -108,3 +116,8 @@ def imgCompress(numSV=3, thresh=0.8):
     reconMat = U[:,:numSV]*SigRecon*VT[:numSV,:]
     print "****reconstructed matrix using %d singular values******" % numSV
     printMat(reconMat, thresh)
+
+if __name__ =="__main__":
+    Data = loadExData()
+    load
+    U,Sigma,VT = linalg.svd(Data)

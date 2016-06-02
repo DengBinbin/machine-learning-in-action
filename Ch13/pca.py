@@ -21,6 +21,7 @@ def pca(dataMat, topNfeat=9999999):
     redEigVects = eigVects[:,eigValInd]       #reorganize eig vects largest to smallest
     lowDDataMat = meanRemoved * redEigVects#transform data into new dimensions
     reconMat = (lowDDataMat * redEigVects.T) + meanVals
+
     return lowDDataMat, reconMat
 
 def replaceNanWithMean(): 

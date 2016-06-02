@@ -355,5 +355,4 @@ def smoPK(dataMatIn, classLabels, C, toler, maxIter):    #full Platt SMO
         print "iteration number: %d" % iter
     return oS.b,oS.alphas
 				
-if __name__ == '__main__':
-    				
+#if __name__ == '__main__':
