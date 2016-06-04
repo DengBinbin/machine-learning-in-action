@@ -118,15 +118,10 @@ def imgCompress(numSV=3, thresh=0.8):
     print "****reconstructed matrix using %d singular values******" % numSV
     printMat(reconMat, thresh)
 
-<<<<<<< HEAD:SVD/svdRec.py
+
 if __name__ =="__main__":
     Data = loadExData()
     load
     U,Sigma,VT = linalg.svd(Data)
-=======
-if __name__ =='__main__':
-    Data = loadExData()
 
-    U,Sigma,VT = la.svd(Data)
-    print Sigma
->>>>>>> 4027770d03cfbf8c09ab29ba6002aefcda3f505b:SVD/svdRec.py
+
