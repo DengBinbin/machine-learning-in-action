@@ -44,8 +44,7 @@ def stocGradAscent1(dataMatrix, classLabels):
 
 dataMat,labelMat=logRegres.loadDataSet()
 dataArr = array(dataMat)
-myHist = stocGradAscent0(dataArr,labelMat)
-
+myHist = stocGradAscent1(dataArr,labelMat)
 
 n = shape(dataArr)[0] #number of points to create
 xcord1 = []; ycord1 = []
