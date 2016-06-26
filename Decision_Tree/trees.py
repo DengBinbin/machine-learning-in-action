@@ -67,6 +67,59 @@ def chooseBestFeatureToSplit(dataSet):
             bestFeature = i
     return bestFeature
 
+'''
+这个函数的作用是返回字典中出现次数最多的value对应的key，也就是输入list中出现最多的那个值
+'''
+def majorityCnt(classList):
+    classCount={}
+    for vote in classList:
+        if vote not in classCount.keys(): classCount[vote] = 0
+        classCount[vote] += 1
+    sortedClassCount = sorted(classCount.iteritems(), key=operator.itemgetter(1), reverse=True)
+
+    return sortedClassCount[0][0]
+'''
+递归地去建树
+'''
+def createTree(dataSet,labels):
+    classList = [example[-1]for example in dataSet]
+    #classList:['yes', 'yes', 'no', 'no', 'no']
+    #如果classList里面全部都是它的第0个元素，即全部分为1类了
+    if classList.count(classList[0]) == len(classList):
+        return classList[0]
+    #len(dataSet[0])是输入数据的列数，因为有一列是label，所以当len(dataSet)等于1的时候说明所有属性
+    if len(dataSet[0]) == 1:
+        return majorityCnt(classList)
+    #一般情况
+    bestFeat = chooseBestFeatureToSplit(dataSet)
+    bestFeatLabel = labels[bestFeat]
+    myTree = {bestFeatLabel:{}}
+    del(labels[bestFeat])
+    featValues = [example[bestFeat] for example in dataSet]
+    uniqueVals = set(featValues)
+    #每次找到的最佳切分点之后，按照最佳切分点
+    for value in uniqueVals:
+        subLabels = labels[:]
+        myTree[bestFeatLabel][value] = createTree(splitDataSet(dataSet,bestFeat,value),subLabels)
+    return myTree
+
+'''
+首先找到根节点，由根节点就可以得到根节点底下的二级字典。输入数据在根节点属性的值是0还是1就可以得到当根节点做出预测的时候的valueOfFeat，这个时候
+还需要进行一次判断，如果这个时候还是字典，说明没有分到底部，则需要继续划分，否则直接返回valueOfFeat
+'''
+def classify(inputTree,featLabels,testVec):
+    firstStr = inputTree.keys()[0]
+    secondDict = inputTree[firstStr]
+    featIndex = featLabels.index(firstStr)
+    key = testVec[featIndex]
+    valueOfFeat = secondDict[key]
+    print valueOfFeat
+    if isinstance(valueOfFeat, dict):
+        classLabel = classify(valueOfFeat, featLabels, testVec)
+    else: classLabel = valueOfFeat
+    return classLabel
+
+
 #作者的代码
 # def splitDataSet(dataSet, axis, value):
 #     retDataSet = []
@@ -95,27 +148,7 @@ def chooseBestFeatureToSplit(dataSet):
 #             bestFeature = i
 #
 #     return bestFeature                      #returns an integer
-'''
-这个函数的作用是返回字典中出现次数最多的value对应的key，也就是输入list中出现最多的那个值
-'''
-def majorityCnt(classList):
-    classCount={}
-    for vote in classList:
-        if vote not in classCount.keys(): classCount[vote] = 0
-        classCount[vote] += 1
-    sortedClassCount = sorted(classCount.iteritems(), key=operator.itemgetter(1), reverse=True)
 
-    return sortedClassCount[0][0]
-'''
-
-'''
-def createTree(dataSet,labels):
-    classList = [example[-1]for example in dataSet]
-    #classList:['yes', 'yes', 'no', 'no', 'no']
-    #如果classList里面全部都是它的第0个元素，即全部分为1类了
-    if classList.count(classList[0]) == len(classList):
-        return classList[0]#stop splitting when all of the classes are equal
-    
 # def createTree(dataSet,labels):
 #     classList = [example[-1] for example in dataSet]
 #     if classList.count(classList[0]) == len(classList):
@@ -132,24 +165,26 @@ def createTree(dataSet,labels):
 #         subLabels = labels[:]       #copy all of labels, so trees don't mess up existing labels
 #         myTree[bestFeatLabel][value] = createTree(splitDataSet(dataSet, bestFeat, value),subLabels)
 #     return myTree
-    
-def classify(inputTree,featLabels,testVec):
-    firstStr = inputTree.keys()[0]
-    secondDict = inputTree[firstStr]
-    featIndex = featLabels.index(firstStr)
-    key = testVec[featIndex]
-    valueOfFeat = secondDict[key]
-    if isinstance(valueOfFeat, dict): 
-        classLabel = classify(valueOfFeat, featLabels, testVec)
-    else: classLabel = valueOfFeat
-    return classLabel
 
+#
+#
+# def classify(inputTree,featLabels,testVec):
+#     firstStr = inputTree.keys()[0]
+#     secondDict = inputTree[firstStr]
+#     featIndex = featLabels.index(firstStr)
+#     key = testVec[featIndex]
+#     valueOfFeat = secondDict[key]
+#     if isinstance(valueOfFeat, dict):
+#         classLabel = classify(valueOfFeat, featLabels, testVec)
+#     else: classLabel = valueOfFeat
+#     return classLabel
+#
 def storeTree(inputTree,filename):
     import pickle
     fw = open(filename,'w')
     pickle.dump(inputTree,fw)
     fw.close()
-    
+
 def grabTree(filename):
     import pickle
     fr = open(filename)
@@ -164,9 +199,11 @@ def retrieveTree(i):
 
 if __name__ =="__main__":
     myDat, labels = createDataSet()
-    print myDat
 
-    bestFeature=chooseBestFeatureToSplit(myDat)
+    #bestFeature=chooseBestFeatureToSplit(myDat)
 
-    myTree = createTree(myDat, labels)
-    #myTree = retrieveTree(0)
+    #myTree = createTree(myDat, labels)
+
+    myTree = retrieveTree(0)
+
+    print classify(myTree,labels,[1,1])
