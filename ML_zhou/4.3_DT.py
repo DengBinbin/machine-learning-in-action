@@ -4,6 +4,7 @@ import pandas as pd
 import codecs
 import operator
 from math import log
+import json
 from treePlotter import *
 
 
@@ -54,7 +55,7 @@ def chooseBestFeatureToSplit(dataSet, labels):
     for i in range(numFeatures):
         featList = [example[i] for example in dataSet]
         # 对连续型特征进行处理 ,i代表第i个特征
-        if type(featList[0]) == type(0.0) or type(featList[0]) == type(0):
+        if type(featList[0]).__name__ == 'float' or type(featList[0]).__name__ == 'int':
             # 产生n-1个候选划分点
             sortfeatList = sorted(featList)
             splitList = []
@@ -93,7 +94,7 @@ def chooseBestFeatureToSplit(dataSet, labels):
             bestFeature = i
     # 若当前节点的最佳划分特征为连续特征，则将其以之前记录的划分点为界进行二值化处理
     # 即是否小于等于bestSplitValue
-    if type(dataSet[0][bestFeature])==type(0.0) or type(dataSet[0][bestFeature]) == type(0):
+    if type(dataSet[0][bestFeature]).__name__=='float' or type(dataSet[0][bestFeature]).__name__ == 'int':
         bestSplitValue = bestSplitDict[labels[bestFeature]]
         labels[bestFeature] = labels[bestFeature] + '<=' + str(bestSplitValue)
         for i in range(shape(dataSet)[0]):
@@ -119,16 +120,32 @@ def majorityCnt(classList):
     return sortedClassCount[0][0]
 
 '''
-递归地去建树
+主程序，递归产生决策树。
+params:
+dataSet:用于构建树的数据集,最开始就是data_full，然后随着划分的进行越来越小，第一次划分之前是17个瓜的数据在根节点，然后选择第一个bestFeat是纹理
+纹理的取值有清晰、模糊、稍糊三种，将瓜分成了清晰（9个），稍糊（5个），模糊（3个）,这个时候应该将划分的类别减少1以便于下次划分
+labels：还剩下的用于划分的类别
+data_full：全部的数据
+label_full:全部的类别
+
+既然是递归的构造树，当然就需要终止条件，终止条件有三个：
+1、当前节点包含的样本全部属于同一类别；-----------------注释1就是这种情形
+2、当前属性集为空，即所有可以用来划分的属性全部用完了，这个时候当前节点还存在不同的类别没有分开，这个时候我们需要将当前节点作为叶子节点，
+同时根据此时剩下的样本中的多数类（无论几类取数量最多的类）-------------------------注释2就是这种情形
+3、当前节点所包含的样本集合为空。比如在某个节点，我们还有10个西瓜，用大小作为特征来划分，分为大中小三类，10个西瓜8大2小，因为训练集生成
+树的时候不包含大小为中的样本，那么划分出来的决策树在碰到大小为中的西瓜（视为未登录的样本）就会将父节点的8大2小作为先验同时将该中西瓜的
+大小属性视作大来处理。
 '''
-#主程序，递归产生决策树
+
 def createTree(dataSet,labels,data_full,labels_full):
     classList=[example[-1] for example in dataSet]
-    if classList.count(classList[0])==len(classList):
+
+    if classList.count(classList[0])==len(classList):  #注释1
         return classList[0]
-    if len(dataSet[0])==1:
+    if len(dataSet[0])==1:                             #注释2
         return majorityCnt(classList)
     bestFeat=chooseBestFeatureToSplit(dataSet,labels)
+    print bestFeat
     bestFeatLabel=labels[bestFeat]
     myTree={bestFeatLabel:{}}
     featValues=[example[bestFeat] for example in dataSet]
@@ -171,6 +188,7 @@ data=df.values[:,1:].tolist()
 data_full=data[:]
 labels=df.columns.values[1:-1].tolist()
 labels_full=labels[:]
+
 myTree=createTree(data,labels,data_full,labels_full)
-print myTree
 #createPlot(myTree)
+# print json.dumps(myTree,ensure_ascii=False,indent=4)
