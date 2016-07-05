@@ -53,8 +53,9 @@ def chooseBestFeatureToSplit(dataSet, labels):
     bestFeature = -1
     bestSplitDict = {}
     for i in range(numFeatures):
+        # 对连续型特征进行处理 ,i代表第i个特征,featList是每次选取一个特征之后这个特征的所有样本对应的数据
         featList = [example[i] for example in dataSet]
-        # 对连续型特征进行处理 ,i代表第i个特征
+        #因为特征分为连续值和离散值特征，对这两种特征需要分开进行处理。
         if type(featList[0]).__name__ == 'float' or type(featList[0]).__name__ == 'int':
             # 产生n-1个候选划分点
             sortfeatList = sorted(featList)
@@ -69,6 +70,7 @@ def chooseBestFeatureToSplit(dataSet, labels):
                 newEntropy = 0.0
                 subDataSet0 = splitContinuousDataSet(dataSet, i, value, 0)
                 subDataSet1 = splitContinuousDataSet(dataSet, i, value, 1)
+
                 prob0 = len(subDataSet0) / float(len(dataSet))
                 newEntropy += prob0 * calcShannonEnt(subDataSet0)
                 prob1 = len(subDataSet1) / float(len(dataSet))
@@ -79,11 +81,11 @@ def chooseBestFeatureToSplit(dataSet, labels):
                     # 用字典记录当前特征的最佳划分点
             bestSplitDict[labels[i]] = splitList[bestSplit]
             infoGain = baseEntropy - bestSplitEntropy
-            # 对离散型特征进行处理
+        # 对离散型特征进行处理
         else:
             uniqueVals = set(featList)
             newEntropy = 0.0
-            # 计算该特征下每种划分的信息熵
+            # 计算该特征下每种划分的信息熵,选取第i个特征的值为value的子集
             for value in uniqueVals:
                 subDataSet = splitDataSet(dataSet, i, value)
                 prob = len(subDataSet) / float(len(dataSet))
@@ -144,18 +146,24 @@ def createTree(dataSet,labels,data_full,labels_full):
         return classList[0]
     if len(dataSet[0])==1:                             #注释2
         return majorityCnt(classList)
+    #平凡情况，每次找到最佳划分的特征
     bestFeat=chooseBestFeatureToSplit(dataSet,labels)
-    print bestFeat
     bestFeatLabel=labels[bestFeat]
+
     myTree={bestFeatLabel:{}}
     featValues=[example[bestFeat] for example in dataSet]
+    #uniqueVals是在当前找到的特征下所有样本出现的个数，例如纹理分为清晰、模糊和稍糊,
     uniqueVals=set(featValues)
     if type(dataSet[0][bestFeat]).__name__=='str':
         currentlabel=labels_full.index(labels[bestFeat])
         featValuesFull=[example[currentlabel] for example in data_full]
         uniqueValsFull=set(featValuesFull)
     del(labels[bestFeat])
-    #针对bestFeat的每个取值，划分出一个子树。
+    '''
+    针对bestFeat的每个取值，划分出一个子树。对于纹理，树应该是{"纹理"：{？}}，显然？处是纹理的不同取值，有清晰模糊和稍糊三种，对于每一种情况，
+    都去建立一个自己的树，大概长这样{"纹理"：{"模糊"：{0},"稍糊"：{1},"清晰":{2}}}，对于0\1\2这三棵树，每次建树的训练样本都是值为value特征数减少1
+    的子集。
+    '''
     for value in uniqueVals:
         subLabels=labels[:]
         if type(dataSet[0][bestFeat]).__name__=='str':
@@ -191,4 +199,4 @@ labels_full=labels[:]
 
 myTree=createTree(data,labels,data_full,labels_full)
 #createPlot(myTree)
-# print json.dumps(myTree,ensure_ascii=False,indent=4)
+print json.dumps(myTree,ensure_ascii=False,indent=4)
