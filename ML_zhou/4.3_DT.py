@@ -141,7 +141,6 @@ label_full:全部的类别
 
 def createTree(dataSet,labels,data_full,labels_full):
     classList=[example[-1] for example in dataSet]
-
     if classList.count(classList[0])==len(classList):  #注释1
         return classList[0]
     if len(dataSet[0])==1:                             #注释2
@@ -152,7 +151,11 @@ def createTree(dataSet,labels,data_full,labels_full):
 
     myTree={bestFeatLabel:{}}
     featValues=[example[bestFeat] for example in dataSet]
-    #uniqueVals是在当前找到的特征下所有样本出现的个数，例如纹理分为清晰、模糊和稍糊,
+    '''
+    刚开始很奇怪为什么要加一个uniqueValFull，后来思考下确实在某次划分，可能因为之前特征的划分而导致某个类的某个属性值缺失，这在之后的
+    新样本分类时会遇到一些问题。所以当是离散类型的数据的时候，可以用一个uniqueValFull来表示训练样本中所有出现过的属性，如果在某个分支
+    每找到一个属性，就在其中去掉一个，最后如果还有剩余的根据父节点投票决定。
+    '''
     uniqueVals=set(featValues)
     if type(dataSet[0][bestFeat]).__name__=='str':
         currentlabel=labels_full.index(labels[bestFeat])
@@ -165,15 +168,17 @@ def createTree(dataSet,labels,data_full,labels_full):
     的子集。
     '''
     for value in uniqueVals:
-        subLabels=labels[:]
-        if type(dataSet[0][bestFeat]).__name__=='str':
+        subLabels = labels[:]
+        if type(dataSet[0][bestFeat]).__name__ == 'str':
             uniqueValsFull.remove(value)
-        myTree[bestFeatLabel][value]=createTree(splitDataSet\
-         (dataSet,bestFeat,value),subLabels,data_full,labels_full)
-    if type(dataSet[0][bestFeat]).__name__=='str':
+        myTree[bestFeatLabel][value] = createTree(splitDataSet \
+                                                   (dataSet, bestFeat, value), subLabels, data_full, labels_full)
+
+    if type(dataSet[0][bestFeat]).__name__ == 'str':
         for value in uniqueValsFull:
-            myTree[bestFeatLabel][value]=majorityCnt(classList)
+            myTree[bestFeatLabel][value] = majorityCnt(classList)
     return myTree
+
 
 # 读入csv文件数据
 # input_path = "data/西瓜数据集3.csv"
