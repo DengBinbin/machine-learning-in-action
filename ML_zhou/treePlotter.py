@@ -5,6 +5,8 @@ Created on Oct 14, 2010
 @author: Peter Harrington
 modified by deng in 2016.03.09
 '''
+import matplotlib
+# matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 decisionNode = dict(boxstyle="sawtooth", fc="0.8")
@@ -54,11 +56,11 @@ def plotTree(myTree, parentPt, nodeTxt):#if the first key tells you what feat wa
     plotTree.yOff = plotTree.yOff - 1.0/plotTree.totalD
     for key in secondDict.keys():
         if type(secondDict[key]).__name__=='dict':#test to see if the nodes are dictonaires, if not they are leaf nodes   
-            plotTree(secondDict[key],cntrPt,str(key))        #recursion
+            plotTree(secondDict[key],cntrPt,unicode(key))        #recursion
         else:   #it's a leaf node print the leaf node
             plotTree.xOff = plotTree.xOff + 1.0/plotTree.totalW
             plotNode(secondDict[key], (plotTree.xOff, plotTree.yOff), cntrPt, leafNode)
-            plotMidText((plotTree.xOff, plotTree.yOff), cntrPt, str(key))
+            plotMidText((plotTree.xOff, plotTree.yOff), cntrPt, unicode(key))
     plotTree.yOff = plotTree.yOff + 1.0/plotTree.totalD
 #if you do get a dictonary you know it's a tree, and the first element will be another dict
 
@@ -67,11 +69,11 @@ def createPlot(inTree):
     fig.clf()
     axprops = dict(xticks=[], yticks=[])
     createPlot.ax1 = plt.subplot(111, frameon=False, **axprops)    #no ticks
-    #createPlot.ax1 = plt.subplot(111, frameon=False) #ticks for demo puropses 
+    createPlot.ax1 = plt.subplot(111, frameon=False) #ticks for demo puropses
     plotTree.totalW = float(getNumLeafs(inTree))
     plotTree.totalD = float(getTreeDepth(inTree))
     plotTree.xOff = -0.5/plotTree.totalW; plotTree.yOff = 1.0;
-    plotTree(inTree, (0.5,1.0), '')
+    plotTree(inTree, (0.5,1.0), u'')
     plt.show()
 
 '''def createPlot():

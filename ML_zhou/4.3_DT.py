@@ -119,9 +119,7 @@ def chooseBestFeatureToSplit(dataSet, labels):
     #将属性变了之后，之前的那些float型的值也要相应变为0和1
     if type(dataSet[0][bestFeature]).__name__=='float' or type(dataSet[0][bestFeature]).__name__ == 'int':
         bestSplitValue = bestSplitDict[labels[bestFeature]]
-        print labels[bestFeature]
         labels[bestFeature] = labels[bestFeature] + '<=' + str(bestSplitValue)
-        print labels[bestFeature]
         for i in range(shape(dataSet)[0]):
             if dataSet[i][bestFeature] <= bestSplitValue:
                 dataSet[i][bestFeature] = 1
@@ -205,29 +203,38 @@ def createTree(dataSet,labels,data_full,labels_full):
             myTree[bestFeatLabel][value] = majorityCnt(classList)
     return myTree
 
+if __name__=="__main__":
+    # 读入csv文件数据
+    input_path = "data/西瓜数据集3.csv"
+    file = codecs.open(input_path, "r", 'utf-8')
 
-# 读入csv文件数据
-# input_path = "data/西瓜数据集3.csv"
-# file = codecs.open(input_path,"r",'utf-8')
-#
-# filedata = [line.strip('\n').split(',') for line in file]
-# filedata = [[float(i) if '.' in i else i for i in row ] for row in filedata] # change decimal from string to float
-# dataSet = [row[1:] for row in filedata[1:]]
-#
-# labels = []
-# for label in filedata[0][1:-1]:
-#     labels.append(label)
-#
-# myTree = createTree(dataSet,labels)
-# #print myTree.keys()
-# createPlot(myTree)
+    filedata = [line.strip('\n').split(',') for line in file]
+    filedata = [[float(i) if '.' in i else i for i in row] for row in filedata]  # change decimal from string to float
+    dataSet = [row[1:] for row in filedata[1:]]
 
-df=pd.read_csv(u'data/西瓜数据集3.csv')
-data=df.values[:,1:].tolist()
-data_full=data[:]
-labels=df.columns.values[1:-1].tolist()
-labels_full=labels[:]
+    labels = []
+    for label in filedata[0][1:-1]:
+        labels.append(label)
 
-myTree=createTree(data,labels,data_full,labels_full)
-#createPlot(myTree)
-print json.dumps(myTree,ensure_ascii=False,indent=4)
+    myTree = createTree(dataSet, labels, dataSet, labels)
+    print myTree
+    createPlot(myTree)
+    print json.dumps(myTree, ensure_ascii=False, indent=4)
+
+
+
+    # df = pd.read_csv(u'data/西瓜数据集3.csv')
+    # data = df.values[:, 1:].tolist()
+    # data_full = data[:]
+    # labels = df.columns.values[1:-1].tolist()
+    # labels_full = labels[:]
+    #
+    # myTree = createTree(data, labels, data_full, labels_full)
+    # print myTree
+    # createPlot(myTree)
+    # print json.dumps(myTree, ensure_ascii=False, indent=4)
+
+
+
+
+
