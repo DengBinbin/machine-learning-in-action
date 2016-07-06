@@ -8,7 +8,11 @@ import json
 from treePlotter import *
 
 
-
+'''
+输入：给定数据集   输出：香浓熵
+对于输入数据集的每个样本，得到label的分布。比如10个A类，15个B类，这样得到A类占了0.4，B类占了0.6，这样就可以算出这个数据集的熵是
+-0.4*log(0.4,2)-0.6*log(0.6,2)。熵反应不稳定程度，越大说明随机性越大，当A和B等概率出现的时候，熵取得最大值1。
+'''
 def calcShannonEnt(dataSet):
     numEntries = len(dataSet)
 
@@ -23,16 +27,21 @@ def calcShannonEnt(dataSet):
         shannonEnt -= prob * log(prob,2) #log base 2
     return shannonEnt
 
-#将离散属性数据按照axis的值为value去进行划分
+'''
+输入：数据集，划分特征，划分特征的取值         输出：划分完毕后的数据子集
+这个函数的作用是对数据集进行划分，对属性axis值为value的那部分数据进行挑选（注：此处得到的子集特征数比划分前少1，少了那个用来划分的数据）
+'''
 def splitDataSet(dataSet,axis,value):
     returnMat = []
     for data in dataSet:
         if data[axis]==value:
             returnMat.append(data[:axis]+data[axis+1:])
     return returnMat
-
-# 对连续变量划分数据集，direction规定划分的方向，
-# 决定是划分出小于value的数据样本还是大于value的数据样本集
+'''
+与上述函数类似，区别在于上述函数是用来处理离散特征值而这里是处理连续特征值
+对连续变量划分数据集，direction规定划分的方向，
+决定是划分出小于value的数据样本还是大于value的数据样本集
+'''
 def splitContinuousDataSet(dataSet, axis, value, direction):
     retDataSet = []
     for featVec in dataSet:
@@ -44,8 +53,20 @@ def splitContinuousDataSet(dataSet, axis, value, direction):
                 retDataSet.append(featVec[:axis] + featVec[axis + 1:])
     return retDataSet
 
-
-# 不同决策树区别在于如何确定最佳划分特征的选取方法不同
+'''
+决策树算法中比较核心的地方，究竟是用何种方式来决定最佳划分？
+使用信息增益作为划分标准的决策树称为ID3
+使用信息增益作为划分标准的决策树称为C4.5
+本题为信息增益的ID3树
+从输入的训练样本集中，计算划分之前的熵，找到当前有多少个特征，遍历每一个特征计算信息增益，找到这些特征中能带来信息增益最大的那一个特征。
+这里用分了两种情况，离散属性和连续属性
+1、离散属性，在遍历特征时，遍历训练样本中该特征所出现过的所有离散值，假设有n种取值，那么对这n种我们分别计算每一种的熵，最后将这些熵加起来
+就是划分之后的信息熵
+2、连续属性，对于连续值就稍微麻烦一点，首先需要确定划分点，用二分的方法确定（连续值取值数-1）个切分点。遍历每种切分情况，对于每种切分，
+计算新的信息熵，从而计算增益，找到最大的增益。
+假设从所有离散和连续属性中已经找到了能带来最大增益的属性划分，这个时候是离散属性很好办，直接用原有训练集中的属性值作为划分的值就行，但是连续
+属性我们只是得到了一个切分点，这是不够的，我们还需要对数据进行二值处理。
+'''
 def chooseBestFeatureToSplit(dataSet, labels):
     numFeatures = len(dataSet[0]) - 1
     baseEntropy = calcShannonEnt(dataSet)
@@ -63,10 +84,8 @@ def chooseBestFeatureToSplit(dataSet, labels):
             for j in range(len(sortfeatList) - 1):
                 splitList.append((sortfeatList[j] + sortfeatList[j + 1]) / 2.0)
             bestSplitEntropy = 10000
-            slen = len(splitList)
             # 求用第j个候选划分点划分时，得到的信息熵，并记录最佳划分点
-            for j in range(slen):
-                value = splitList[j]
+            for value in splitList:
                 newEntropy = 0.0
                 subDataSet0 = splitContinuousDataSet(dataSet, i, value, 0)
                 subDataSet1 = splitContinuousDataSet(dataSet, i, value, 1)
@@ -77,10 +96,11 @@ def chooseBestFeatureToSplit(dataSet, labels):
                 newEntropy += prob1 * calcShannonEnt(subDataSet1)
                 if newEntropy < bestSplitEntropy:
                     bestSplitEntropy = newEntropy
-                    bestSplit = j
+                    bestSplit = value
                     # 用字典记录当前特征的最佳划分点
-            bestSplitDict[labels[i]] = splitList[bestSplit]
+            bestSplitDict[labels[i]] = bestSplit
             infoGain = baseEntropy - bestSplitEntropy
+
         # 对离散型特征进行处理
         else:
             uniqueVals = set(featList)
@@ -95,10 +115,13 @@ def chooseBestFeatureToSplit(dataSet, labels):
             bestInfoGain = infoGain
             bestFeature = i
     # 若当前节点的最佳划分特征为连续特征，则将其以之前记录的划分点为界进行二值化处理
-    # 即是否小于等于bestSplitValue
+    # 即是否小于等于bestSplitValue,例如将密度变为密度<=0.3815
+    #将属性变了之后，之前的那些float型的值也要相应变为0和1
     if type(dataSet[0][bestFeature]).__name__=='float' or type(dataSet[0][bestFeature]).__name__ == 'int':
         bestSplitValue = bestSplitDict[labels[bestFeature]]
+        print labels[bestFeature]
         labels[bestFeature] = labels[bestFeature] + '<=' + str(bestSplitValue)
+        print labels[bestFeature]
         for i in range(shape(dataSet)[0]):
             if dataSet[i][bestFeature] <= bestSplitValue:
                 dataSet[i][bestFeature] = 1
@@ -110,6 +133,7 @@ def chooseBestFeatureToSplit(dataSet, labels):
 
 
 '''
+输入：类别列表     输出：类别列表中多数的类，即多数表决
 这个函数的作用是返回字典中出现次数最多的value对应的key，也就是输入list中出现最多的那个值
 '''
 def majorityCnt(classList):
@@ -152,9 +176,11 @@ def createTree(dataSet,labels,data_full,labels_full):
     myTree={bestFeatLabel:{}}
     featValues=[example[bestFeat] for example in dataSet]
     '''
-    刚开始很奇怪为什么要加一个uniqueValFull，后来思考下确实在某次划分，可能因为之前特征的划分而导致某个类的某个属性值缺失，这在之后的
-    新样本分类时会遇到一些问题。所以当是离散类型的数据的时候，可以用一个uniqueValFull来表示训练样本中所有出现过的属性，如果在某个分支
-    每找到一个属性，就在其中去掉一个，最后如果还有剩余的根据父节点投票决定。
+    刚开始很奇怪为什么要加一个uniqueValFull，后来思考下觉得应该是在某次划分，比如在根节点划分纹理的时候，将数据分成了清晰、模糊、稍糊三块
+    ，假设之后在模糊这一子数据集中，下一划分属性是触感，而这个数据集中只有软粘属性的西瓜，这样建立的决策树在当前节点划分时就只有软粘这一属性了，
+    事实上训练样本中还有硬滑这一属性，这样就造成了树的缺失，因此用到uniqueValFull之后就能将训练样本中有的属性值都囊括。
+    如果在某个分支每找到一个属性，就在其中去掉一个，最后如果还有剩余的根据父节点投票决定。
+    但是即便这样，如果训练集中没有出现触感属性值为“一般”的西瓜，但是分类时候遇到这样的测试样本，那么应该用父节点的多数类作为预测结果输出。
     '''
     uniqueVals=set(featValues)
     if type(dataSet[0][bestFeat]).__name__=='str':
