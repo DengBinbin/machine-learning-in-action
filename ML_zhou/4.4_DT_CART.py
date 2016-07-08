@@ -9,24 +9,22 @@ from treePlotter import *
 
 
 '''
-输入：给定数据集   输出：香浓熵
-对于输入数据集的每个样本，得到label的分布。比如10个A类，15个B类，这样得到A类占了0.4，B类占了0.6，这样就可以算出这个数据集的熵是
--0.4*log(0.4,2)-0.6*log(0.6,2)。熵反应不稳定程度，越大说明随机性越大，当A和B等概率出现的时候，熵取得最大值1。
-'''
-def calcShannonEnt(dataSet):
-    numEntries = len(dataSet)
+输入：给定数据集   输出：Gini指数
 
+'''
+def calcGini(dataSet):
+    numEntries = len(dataSet)
     labelCounts = {}
     for featVec in dataSet: #the the number of unique elements and their occurance
         currentLabel = featVec[-1]
-        if currentLabel not in labelCounts.keys(): labelCounts[currentLabel] = 0
+        if currentLabel not in labelCounts.keys():
+            labelCounts[currentLabel] = 0
         labelCounts[currentLabel] += 1
-    shannonEnt = 0.0
+    Gini = 1.0
     for key in labelCounts:
         prob = float(labelCounts[key])/numEntries
-        shannonEnt -= prob * log(prob,2) #log base 2
-    return shannonEnt
-
+        Gini -= prob * prob #log base 2
+    return Gini
 '''
 输入：数据集，划分特征，划分特征的取值         输出：划分完毕后的数据子集
 这个函数的作用是对数据集进行划分，对属性axis值为value的那部分数据进行挑选（注：此处得到的子集特征数比划分前少1，少了那个用来划分的数据）
@@ -37,21 +35,6 @@ def splitDataSet(dataSet,axis,value):
         if data[axis]==value:
             returnMat.append(data[:axis]+data[axis+1:])
     return returnMat
-'''
-与上述函数类似，区别在于上述函数是用来处理离散特征值而这里是处理连续特征值
-对连续变量划分数据集，direction规定划分的方向，
-决定是划分出小于value的数据样本还是大于value的数据样本集
-'''
-def splitContinuousDataSet(dataSet, axis, value, direction):
-    retDataSet = []
-    for featVec in dataSet:
-        if direction == 0:
-            if featVec[axis] > value:
-                retDataSet.append(featVec[:axis] + featVec[axis + 1:])
-        else:
-            if featVec[axis] <= value:
-                retDataSet.append(featVec[:axis] + featVec[axis + 1:])
-    return retDataSet
 
 '''
 决策树算法中比较核心的地方，究竟是用何种方式来决定最佳划分？
@@ -69,62 +52,26 @@ def splitContinuousDataSet(dataSet, axis, value, direction):
 '''
 def chooseBestFeatureToSplit(dataSet, labels):
     numFeatures = len(dataSet[0]) - 1
-    baseEntropy = calcShannonEnt(dataSet)
-    bestInfoGain = 0.0
+    bestGini = 10000.0
     bestFeature = -1
-    bestSplitDict = {}
     for i in range(numFeatures):
         # 对连续型特征进行处理 ,i代表第i个特征,featList是每次选取一个特征之后这个特征的所有样本对应的数据
         featList = [example[i] for example in dataSet]
-        #因为特征分为连续值和离散值特征，对这两种特征需要分开进行处理。
-        if type(featList[0]).__name__ == 'float' or type(featList[0]).__name__ == 'int':
-            # 产生n-1个候选划分点
-            sortfeatList = sorted(featList)
-            splitList = []
-            for j in range(len(sortfeatList) - 1):
-                splitList.append((sortfeatList[j] + sortfeatList[j + 1]) / 2.0)
-            bestSplitEntropy = 10000
-            # 求用第j个候选划分点划分时，得到的信息熵，并记录最佳划分点
-            for value in splitList:
-                newEntropy = 0.0
-                subDataSet0 = splitContinuousDataSet(dataSet, i, value, 0)
-                subDataSet1 = splitContinuousDataSet(dataSet, i, value, 1)
 
-                prob0 = len(subDataSet0) / float(len(dataSet))
-                newEntropy += prob0 * calcShannonEnt(subDataSet0)
-                prob1 = len(subDataSet1) / float(len(dataSet))
-                newEntropy += prob1 * calcShannonEnt(subDataSet1)
-                if newEntropy < bestSplitEntropy:
-                    bestSplitEntropy = newEntropy
-                    bestSplit = value
-                    # 用字典记录当前特征的最佳划分点
-            bestSplitDict[labels[i]] = bestSplit
-            infoGain = baseEntropy - bestSplitEntropy
+        uniqueVals = set(featList)
+        newGini = 0.0
+        # 计算该特征下每种划分的信息熵,选取第i个特征的值为value的子集
+        for value in uniqueVals:
+            subDataSet = splitDataSet(dataSet, i, value)
+            prob = len(subDataSet) / float(len(dataSet))
+            print prob
+            newGini += prob * calcGini(subDataSet)
 
-        # 对离散型特征进行处理
-        else:
-            uniqueVals = set(featList)
-            newEntropy = 0.0
-            # 计算该特征下每种划分的信息熵,选取第i个特征的值为value的子集
-            for value in uniqueVals:
-                subDataSet = splitDataSet(dataSet, i, value)
-                prob = len(subDataSet) / float(len(dataSet))
-                newEntropy += prob * calcShannonEnt(subDataSet)
-            infoGain = baseEntropy - newEntropy
-        if infoGain > bestInfoGain:
-            bestInfoGain = infoGain
+        print u"label:{0} Gini:{1}".format(labels[i],newGini)
+        if newGini < bestGini:
+            bestGini = newGini
             bestFeature = i
-    # 若当前节点的最佳划分特征为连续特征，则将其以之前记录的划分点为界进行二值化处理
-    # 即是否小于等于bestSplitValue,例如将密度变为密度<=0.3815
-    #将属性变了之后，之前的那些float型的值也要相应变为0和1
-    if type(dataSet[0][bestFeature]).__name__=='float' or type(dataSet[0][bestFeature]).__name__ == 'int':
-        bestSplitValue = bestSplitDict[labels[bestFeature]]
-        labels[bestFeature] = labels[bestFeature] + '<=' + str(bestSplitValue)
-        for i in range(shape(dataSet)[0]):
-            if dataSet[i][bestFeature] <= bestSplitValue:
-                dataSet[i][bestFeature] = 1
-            else:
-                dataSet[i][bestFeature] = 0
+
     return bestFeature
 
 
@@ -180,56 +127,56 @@ def createTree(dataSet,labels,data_full,labels_full):
     但是即便这样，如果训练集中没有出现触感属性值为“一般”的西瓜，但是分类时候遇到这样的测试样本，那么应该用父节点的多数类作为预测结果输出。
     '''
     uniqueVals=set(featValues)
-    if type(dataSet[0][bestFeat]).__name__=='str':
-        currentlabel=labels_full.index(labels[bestFeat])
-        featValuesFull=[example[currentlabel] for example in data_full]
-        uniqueValsFull=set(featValuesFull)
+    currentlabel=labels_full.index(labels[bestFeat])
+    featValuesFull=[example[currentlabel] for example in data_full]
+    uniqueValsFull=set(featValuesFull)
     del(labels[bestFeat])
+
     '''
     针对bestFeat的每个取值，划分出一个子树。对于纹理，树应该是{"纹理"：{？}}，显然？处是纹理的不同取值，有清晰模糊和稍糊三种，对于每一种情况，
     都去建立一个自己的树，大概长这样{"纹理"：{"模糊"：{0},"稍糊"：{1},"清晰":{2}}}，对于0\1\2这三棵树，每次建树的训练样本都是值为value特征数减少1
     的子集。
     '''
+
     for value in uniqueVals:
         subLabels = labels[:]
-        if type(dataSet[0][bestFeat]).__name__ == 'str':
-            uniqueValsFull.remove(value)
+        uniqueValsFull.remove(value)
         myTree[bestFeatLabel][value] = createTree(splitDataSet \
-                                                   (dataSet, bestFeat, value), subLabels, data_full, labels_full)
+                            (dataSet, bestFeat, value), subLabels, data_full, labels_full)
 
-    if type(dataSet[0][bestFeat]).__name__ == 'str':
-        for value in uniqueValsFull:
-            myTree[bestFeatLabel][value] = majorityCnt(classList)
+
+    for value in uniqueValsFull:
+        myTree[bestFeatLabel][value] = majorityCnt(classList)
     return myTree
 
 if __name__=="__main__":
     # 读入csv文件数据
-    input_path = "data/西瓜数据集3.csv"
+    input_path = "data/西瓜数据集2.0.csv"
     file = codecs.open(input_path, "r", 'utf-8')
 
     filedata = [line.strip('\n').split(',') for line in file]
     filedata = [[float(i) if '.' in i else i for i in row] for row in filedata]  # change decimal from string to float
-    dataSet = [row[1:] for row in filedata[1:]]
-
+    dataSet = [row[1:] for row in filedata[1:11]]
+    print len(dataSet)
+    data_full = dataSet[:]
     labels = []
     for label in filedata[0][1:-1]:
         labels.append(label)
     labels_full = labels[:]
-    myTree = createTree(dataSet, labels, dataSet, labels_full)
+    myTree = createTree(dataSet, labels, data_full, labels_full)
     createPlot(myTree)
     print json.dumps(myTree, ensure_ascii=False, indent=4)
 
 
 
-    # df = pd.read_csv(u'data/西瓜数据集3.csv')
+    # df = pd.read_csv(u'data/西瓜数据集2.0.csv')
     # data = df.values[:, 1:].tolist()
     # data_full = data[:]
     # labels = df.columns.values[1:-1].tolist()
     # labels_full = labels[:]
     #
     # myTree = createTree(data, labels, data_full, labels_full)
-    # print myTree
-    # createPlot(myTree)
+    # # createPlot(myTree)
     # print json.dumps(myTree, ensure_ascii=False, indent=4)
 
 
