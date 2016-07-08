@@ -5,6 +5,8 @@ Created on Oct 14, 2010
 @author: Peter Harrington
 modified by deng in 2016.03.09
 '''
+import matplotlib
+# matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 decisionNode = dict(boxstyle="sawtooth", fc="0.8")
@@ -67,11 +69,11 @@ def createPlot(inTree):
     fig.clf()
     axprops = dict(xticks=[], yticks=[])
     createPlot.ax1 = plt.subplot(111, frameon=False, **axprops)    #no ticks
-    #createPlot.ax1 = plt.subplot(111, frameon=False) #ticks for demo puropses 
+    createPlot.ax1 = plt.subplot(111, frameon=False) #ticks for demo puropses
     plotTree.totalW = float(getNumLeafs(inTree))
     plotTree.totalD = float(getTreeDepth(inTree))
     plotTree.xOff = -0.5/plotTree.totalW; plotTree.yOff = 1.0;
-    plotTree(inTree, (0.5,1.0), '')
+    plotTree(inTree, (0.5,1.0), u'')
     plt.show()
 
 '''def createPlot():

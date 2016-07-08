@@ -214,8 +214,11 @@ if __name__=="__main__":
     labels = []
     for label in filedata[0][1:-1]:
         labels.append(label)
+
     labels_full = labels[:]
     myTree = createTree(dataSet, labels, dataSet, labels_full)
+
+
     createPlot(myTree)
     print json.dumps(myTree, ensure_ascii=False, indent=4)
 
@@ -234,4 +237,8 @@ if __name__=="__main__":
 
 
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> f9e332dfdce3e838f39a93182b6938d8e4900bff
 
