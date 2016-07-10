@@ -70,55 +70,21 @@ def chooseBestFeatureToSplit(dataSet, labels):
     numFeatures = len(dataSet[0]) - 1
     bestGini = 10000.0
     bestFeature = -1
-    bestSplitDict = {}
     for i in range(numFeatures):
         # 对连续型特征进行处理 ,i代表第i个特征,featList是每次选取一个特征之后这个特征的所有样本对应的数据
         featList = [example[i] for example in dataSet]
-        # 因为特征分为连续值和离散值特征，对这两种特征需要分开进行处理。
-        if type(featList[0]).__name__ == 'float' or type(featList[0]).__name__ == 'int':
-            # 产生n-1个候选划分点
-            sortfeatList = sorted(featList)
-            splitList = []
-            for j in range(len(sortfeatList) - 1):
-                splitList.append((sortfeatList[j] + sortfeatList[j + 1]) / 2.0)
-            bestSplitGini = 10000
-            # 求用第j个候选划分点划分时，得到的信息熵，并记录最佳划分点
-            for value in splitList:
-                newGini = 0.0
-                subDataSet0 = splitContinuousDataSet(dataSet, i, value, 0)
-                subDataSet1 = splitContinuousDataSet(dataSet, i, value, 1)
-                prob0 = len(subDataSet0) / float(len(dataSet))
-                newGini += prob0 * calcGini(subDataSet0)
-                prob1 = len(subDataSet1) / float(len(dataSet))
-                newGini += prob1 * calcGini(subDataSet1)
-                if newGini < bestSplitGini:
-                    bestSplitGini = newGini
-                    bestSplit = value
-                    # 用字典记录当前特征的最佳划分点
-            bestSplitDict[labels[i]] = bestSplit
-            newGini = bestSplitGini
-        else:
-            uniqueVals = set(featList)
-            newGini = 0.0
-            # 计算该特征下每种划分的信息熵,选取第i个特征的值为value的子集
-            for value in uniqueVals:
-                subDataSet = splitDataSet(dataSet, i, value)
-                prob = len(subDataSet) / float(len(dataSet))
-                newGini += prob * calcGini(subDataSet)
+
+        uniqueVals = set(featList)
+        newGini = 0.0
+        # 计算该特征下每种划分的信息熵,选取第i个特征的值为value的子集
+        for value in uniqueVals:
+            subDataSet = splitDataSet(dataSet, i, value)
+            prob = len(subDataSet) / float(len(dataSet))
+            newGini += prob * calcGini(subDataSet)
         if newGini < bestGini:
             bestGini = newGini
             bestFeature = i
 
-    # 若当前节点的最佳划分特征为连续特征，则将其以之前记录的划分点为界进行二值化处理
-    # 即是否小于等于bestSplitValue
-    if type(dataSet[0][bestFeature]).__name__ == 'float' or type(dataSet[0][bestFeature]).__name__ == 'int':
-        bestSplitValue = bestSplitDict[labels[bestFeature]]
-        labels[bestFeature] = labels[bestFeature] + '<=' + str(bestSplitValue)
-        for i in range(shape(dataSet)[0]):
-            if dataSet[i][bestFeature] <= bestSplitValue:
-                dataSet[i][bestFeature] = 1
-            else:
-                dataSet[i][bestFeature] = 0
     return bestFeature
 
 '''
@@ -141,9 +107,9 @@ def majorityCnt(classList):
 # 因此对于这类特征，需要利用正则表达式进行分割，获得特征名以及分割阈值
 def classify(inputTree, featLabels, testVec):
     firstStr = inputTree.keys()[0]
-    if u'<=' in firstStr:
-        featvalue = float(firstStr.split(u"<=")[1])
-        featkey = firstStr.split(u"<=")[0]
+    if '<=' in firstStr:
+        featvalue = float(firstStr.split("<=")[1])
+        featkey = firstStr.split("<=")[0]
         secondDict = inputTree[firstStr]
         featIndex = featLabels.index(featkey)
         if testVec[featIndex] <= featvalue:
@@ -173,7 +139,7 @@ def testing(myTree, data_test, labels):
     for i in range(len(data_test)):
         if classify(myTree, labels, data_test[i]) != data_test[i][-1]:
             error += 1
-    # print 'myTree %d' % error
+    print 'myTree %d' % error
     return float(error)
 
 def testing_feat(feat,train_data,test_data,labels):
@@ -197,7 +163,7 @@ def testingMajor(major, data_test):
     for i in range(len(data_test)):
         if major != data_test[i][-1]:
             error += 1
-    # print 'major %d' % error
+    print 'major %d' % error
     return float(error)
 
 # #后剪枝
@@ -255,7 +221,6 @@ def createTree(dataSet,labels,data_full,labels_full,test_data,mode="unpro"):
     labels_copy = copy.deepcopy(labels)
     bestFeat=chooseBestFeatureToSplit(dataSet,labels)
     bestFeatLabel=labels[bestFeat]
-    print bestFeatLabel
     if mode=="unpro" or mode=="post":
         myTree = {bestFeatLabel: {}}
     elif mode=="prev":
@@ -275,7 +240,6 @@ def createTree(dataSet,labels,data_full,labels_full,test_data,mode="unpro"):
     但是即便这样，如果训练集中没有出现触感属性值为“一般”的西瓜，但是分类时候遇到这样的测试样本，那么应该用父节点的多数类作为预测结果输出。
     '''
     if type(dataSet[0][bestFeat]).__name__ == 'unicode':
-
         currentlabel = labels_full.index(labels[bestFeat])
         featValuesFull = [example[currentlabel] for example in data_full]
         uniqueValsFull = set(featValuesFull)
@@ -328,9 +292,9 @@ if __name__=="__main__":
     为了代码的简洁，将预剪枝，后剪枝和未剪枝三种模式用一个参数mode传入建树的过程
     post代表后剪枝，prev代表预剪枝，unpro代表不剪枝
     '''
-    myTree = createTree(train_data,labels, data_full, labels_full,test_data,mode = "unpro")
+    myTree = createTree(train_data,labels, data_full, labels_full,test_data,mode = "post")
     # myTree = postPruningTree(myTree,train_data,test_data,labels_full)
-    # createPlot(myTree)
+    createPlot(myTree)
     print json.dumps(myTree, ensure_ascii=False, indent=4)
 
 
