@@ -3,7 +3,7 @@ from numpy import *
 import pandas as pd
 import codecs
 import operator
-from math import log
+import copy
 import json
 from treePlotter import *
 
@@ -37,6 +37,22 @@ def splitDataSet(dataSet,axis,value):
     return returnMat
 
 '''
+与上述函数类似，区别在于上述函数是用来处理离散特征值而这里是处理连续特征值
+对连续变量划分数据集，direction规定划分的方向，
+决定是划分出小于value的数据样本还是大于value的数据样本集
+'''
+def splitContinuousDataSet(dataSet, axis, value, direction):
+    retDataSet = []
+    for featVec in dataSet:
+        if direction == 0:
+            if featVec[axis] > value:
+                retDataSet.append(featVec[:axis] + featVec[axis + 1:])
+        else:
+            if featVec[axis] <= value:
+                retDataSet.append(featVec[:axis] + featVec[axis + 1:])
+    return retDataSet
+
+'''
 决策树算法中比较核心的地方，究竟是用何种方式来决定最佳划分？
 使用信息增益作为划分标准的决策树称为ID3
 使用信息增益比作为划分标准的决策树称为C4.5
@@ -54,28 +70,56 @@ def chooseBestFeatureToSplit(dataSet, labels):
     numFeatures = len(dataSet[0]) - 1
     bestGini = 10000.0
     bestFeature = -1
+    bestSplitDict = {}
     for i in range(numFeatures):
         # 对连续型特征进行处理 ,i代表第i个特征,featList是每次选取一个特征之后这个特征的所有样本对应的数据
         featList = [example[i] for example in dataSet]
-
-        uniqueVals = set(featList)
-        newGini = 0.0
-        # 计算该特征下每种划分的信息熵,选取第i个特征的值为value的子集
-        for value in uniqueVals:
-            subDataSet = splitDataSet(dataSet, i, value)
-            prob = len(subDataSet) / float(len(dataSet))
-            print prob
-            newGini += prob * calcGini(subDataSet)
-
-        print u"label:{0} Gini:{1}".format(labels[i],newGini)
+        # 因为特征分为连续值和离散值特征，对这两种特征需要分开进行处理。
+        if type(featList[0]).__name__ == 'float' or type(featList[0]).__name__ == 'int':
+            # 产生n-1个候选划分点
+            sortfeatList = sorted(featList)
+            splitList = []
+            for j in range(len(sortfeatList) - 1):
+                splitList.append((sortfeatList[j] + sortfeatList[j + 1]) / 2.0)
+            bestSplitGini = 10000
+            # 求用第j个候选划分点划分时，得到的信息熵，并记录最佳划分点
+            for value in splitList:
+                newGini = 0.0
+                subDataSet0 = splitContinuousDataSet(dataSet, i, value, 0)
+                subDataSet1 = splitContinuousDataSet(dataSet, i, value, 1)
+                prob0 = len(subDataSet0) / float(len(dataSet))
+                newGini += prob0 * calcGini(subDataSet0)
+                prob1 = len(subDataSet1) / float(len(dataSet))
+                newGini += prob1 * calcGini(subDataSet1)
+                if newGini < bestSplitGini:
+                    bestSplitGini = newGini
+                    bestSplit = value
+                    # 用字典记录当前特征的最佳划分点
+            bestSplitDict[labels[i]] = bestSplit
+            newGini = bestSplitGini
+        else:
+            uniqueVals = set(featList)
+            newGini = 0.0
+            # 计算该特征下每种划分的信息熵,选取第i个特征的值为value的子集
+            for value in uniqueVals:
+                subDataSet = splitDataSet(dataSet, i, value)
+                prob = len(subDataSet) / float(len(dataSet))
+                newGini += prob * calcGini(subDataSet)
         if newGini < bestGini:
             bestGini = newGini
             bestFeature = i
 
+    # 若当前节点的最佳划分特征为连续特征，则将其以之前记录的划分点为界进行二值化处理
+    # 即是否小于等于bestSplitValue
+    if type(dataSet[0][bestFeature]).__name__ == 'float' or type(dataSet[0][bestFeature]).__name__ == 'int':
+        bestSplitValue = bestSplitDict[labels[bestFeature]]
+        labels[bestFeature] = labels[bestFeature] + '<=' + str(bestSplitValue)
+        for i in range(shape(dataSet)[0]):
+            if dataSet[i][bestFeature] <= bestSplitValue:
+                dataSet[i][bestFeature] = 1
+            else:
+                dataSet[i][bestFeature] = 0
     return bestFeature
-
-
-
 
 '''
 输入：类别列表     输出：类别列表中多数的类，即多数表决
@@ -86,9 +130,103 @@ def majorityCnt(classList):
     for vote in classList:
         if vote not in classCount.keys(): classCount[vote] = 0
         classCount[vote] += 1
+
     sortedClassCount = sorted(classCount.iteritems(), key=operator.itemgetter(1), reverse=True)
 
     return sortedClassCount[0][0]
+
+
+
+# 由于在Tree中，连续值特征的名称以及改为了feature <= value的形式
+# 因此对于这类特征，需要利用正则表达式进行分割，获得特征名以及分割阈值
+def classify(inputTree, featLabels, testVec):
+    firstStr = inputTree.keys()[0]
+    if u'<=' in firstStr:
+        featvalue = float(firstStr.split(u"<=")[1])
+        featkey = firstStr.split(u"<=")[0]
+        secondDict = inputTree[firstStr]
+        featIndex = featLabels.index(featkey)
+        if testVec[featIndex] <= featvalue:
+            judge = 1
+        else:
+            judge = 0
+        for key in secondDict.keys():
+            if judge == int(key):
+                if type(secondDict[key]).__name__ == 'dict':
+                    classLabel = classify(secondDict[key], featLabels, testVec)
+                else:
+                    classLabel = secondDict[key]
+    else:
+        secondDict = inputTree[firstStr]
+        featIndex = featLabels.index(firstStr)
+        for key in secondDict.keys():
+            if testVec[featIndex] == key:
+                if type(secondDict[key]).__name__ == 'dict':
+                    classLabel = classify(secondDict[key], featLabels, testVec)
+                else:
+                    classLabel = secondDict[key]
+    return classLabel
+
+
+def testing(myTree, data_test, labels):
+    error = 0.0
+    for i in range(len(data_test)):
+        if classify(myTree, labels, data_test[i]) != data_test[i][-1]:
+            error += 1
+    # print 'myTree %d' % error
+    return float(error)
+
+def testing_feat(feat,train_data,test_data,labels):
+    class_list = [example[-1] for example in train_data]
+    bestFeatIndex = labels.index(feat)
+    train_data = [example[bestFeatIndex] for example in train_data]
+    test_data = [(example[bestFeatIndex],example[-1]) for example in test_data]
+    all_feat = set(train_data)
+    error = 0.0
+    for value in all_feat:
+        class_feat = [ class_list[i] for i in range(len(class_list)) if train_data[i]==value]
+        major = majorityCnt(class_feat)
+        for data in test_data:
+            if data[0]==value and data[1]!=major:
+                error+=1.0
+    # print 'myTree %d' % error
+    return error
+
+def testingMajor(major, data_test):
+    error = 0.0
+    for i in range(len(data_test)):
+        if major != data_test[i][-1]:
+            error += 1
+    # print 'major %d' % error
+    return float(error)
+
+# #后剪枝
+# def postPruningTree(inputTree,dataSet,data_test,labels):
+#     firstStr=inputTree.keys()[0]
+#     secondDict=inputTree[firstStr]
+#     classList=[example[-1] for example in dataSet]
+#     featkey=copy.deepcopy(firstStr)
+#     if u'<=' in firstStr:
+#         featkey=firstStr.split(u'<=')[0]
+#         featvalue=float(firstStr.split(u'<=')[1])
+#     labelIndex=labels.index(featkey)
+#     temp_labels=copy.deepcopy(labels)
+#     del(labels[labelIndex])
+#     for key in secondDict.keys():
+#         if type(secondDict[key]).__name__=='dict':
+#             if type(dataSet[0][labelIndex]).__name__=='unicode':
+#                 inputTree[firstStr][key]=postPruningTree(secondDict[key],\
+#                  splitDataSet(dataSet,labelIndex,key),splitDataSet(data_test,labelIndex,key),copy.deepcopy(labels))
+#             else:
+#                 inputTree[firstStr][key]=postPruningTree(secondDict[key],\
+#                 splitContinuousDataSet(dataSet,labelIndex,featvalue,key),\
+#                 splitContinuousDataSet(data_test,labelIndex,featvalue,key),\
+#                 copy.deepcopy(labels))
+#     if testing(inputTree,data_test,temp_labels)<=testingMajor(majorityCnt(classList),data_test):
+#         return inputTree
+#     return majorityCnt(classList)
+
+
 
 '''
 主程序，递归产生决策树。
@@ -107,18 +245,28 @@ label_full:全部的类别
 大小属性视作大来处理。
 '''
 
-def createTree(dataSet,labels,data_full,labels_full):
+def createTree(dataSet,labels,data_full,labels_full,test_data,mode="unpro"):
     classList=[example[-1] for example in dataSet]
     if classList.count(classList[0])==len(classList):  #注释1
         return classList[0]
     if len(dataSet[0])==1:                             #注释2
         return majorityCnt(classList)
     #平凡情况，每次找到最佳划分的特征
+    labels_copy = copy.deepcopy(labels)
     bestFeat=chooseBestFeatureToSplit(dataSet,labels)
     bestFeatLabel=labels[bestFeat]
+    print bestFeatLabel
+    if mode=="unpro" or mode=="post":
+        myTree = {bestFeatLabel: {}}
+    elif mode=="prev":
+        if testing_feat(bestFeatLabel,dataSet,test_data,labels_copy)<testingMajor(majorityCnt(classList), test_data):
+            myTree = {bestFeatLabel: {}}
+        else:
+            return majorityCnt(classList)
 
-    myTree={bestFeatLabel:{}}
     featValues=[example[bestFeat] for example in dataSet]
+    uniqueVals = set(featValues)
+
     '''
     刚开始很奇怪为什么要加一个uniqueValFull，后来思考下觉得应该是在某次划分，比如在根节点划分纹理的时候，将数据分成了清晰、模糊、稍糊三块
     ，假设之后在模糊这一子数据集中，下一划分属性是触感，而这个数据集中只有软粘属性的西瓜，这样建立的决策树在当前节点划分时就只有软粘这一属性了，
@@ -126,10 +274,12 @@ def createTree(dataSet,labels,data_full,labels_full):
     如果在某个分支每找到一个属性，就在其中去掉一个，最后如果还有剩余的根据父节点投票决定。
     但是即便这样，如果训练集中没有出现触感属性值为“一般”的西瓜，但是分类时候遇到这样的测试样本，那么应该用父节点的多数类作为预测结果输出。
     '''
-    uniqueVals=set(featValues)
-    currentlabel=labels_full.index(labels[bestFeat])
-    featValuesFull=[example[currentlabel] for example in data_full]
-    uniqueValsFull=set(featValuesFull)
+    if type(dataSet[0][bestFeat]).__name__ == 'unicode':
+
+        currentlabel = labels_full.index(labels[bestFeat])
+        featValuesFull = [example[currentlabel] for example in data_full]
+        uniqueValsFull = set(featValuesFull)
+
     del(labels[bestFeat])
 
     '''
@@ -137,47 +287,53 @@ def createTree(dataSet,labels,data_full,labels_full):
     都去建立一个自己的树，大概长这样{"纹理"：{"模糊"：{0},"稍糊"：{1},"清晰":{2}}}，对于0\1\2这三棵树，每次建树的训练样本都是值为value特征数减少1
     的子集。
     '''
-
     for value in uniqueVals:
         subLabels = labels[:]
-        uniqueValsFull.remove(value)
+        if type(dataSet[0][bestFeat]).__name__ == 'unicode':
+            uniqueValsFull.remove(value)
+
         myTree[bestFeatLabel][value] = createTree(splitDataSet \
-                            (dataSet, bestFeat, value), subLabels, data_full, labels_full)
+                            (dataSet, bestFeat, value), subLabels, data_full, labels_full,splitDataSet \
+                            (test_data, bestFeat, value),mode=mode)
+    if type(dataSet[0][bestFeat]).__name__ == 'unicode':
+        for value in uniqueValsFull:
+            myTree[bestFeatLabel][value] = majorityCnt(classList)
+
+    if mode=="post":
+        if testing(myTree, test_data, labels_copy) <= testingMajor(majorityCnt(classList), test_data):
+            return myTree
+    return majorityCnt(classList)
 
 
-    for value in uniqueValsFull:
-        myTree[bestFeatLabel][value] = majorityCnt(classList)
-    return myTree
-
-if __name__=="__main__":
-    # 读入csv文件数据
-    input_path = "data/西瓜数据集2.0.csv"
-    file = codecs.open(input_path, "r", 'utf-8')
-
+# 读入csv文件数据
+def load_data(file_name):
+    file = codecs.open(file_name, "r", 'utf-8')
     filedata = [line.strip('\n').split(',') for line in file]
     filedata = [[float(i) if '.' in i else i for i in row] for row in filedata]  # change decimal from string to float
-    dataSet = [row[1:] for row in filedata[1:11]]
-    print len(dataSet)
-    data_full = dataSet[:]
+    train_data = [row[1:] for row in filedata[1:12]]
+    test_data = [row[1:] for row in filedata[12:]]
     labels = []
     for label in filedata[0][1:-1]:
-        labels.append(label)
+        labels.append(unicode(label))
+    return train_data,test_data,labels
+
+
+
+if __name__=="__main__":
+
+    train_data,test_data,labels = load_data("data/西瓜数据集2.0.csv")
+    data_full = train_data[:]
     labels_full = labels[:]
-    myTree = createTree(dataSet, labels, data_full, labels_full)
-    createPlot(myTree)
+    '''
+    为了代码的简洁，将预剪枝，后剪枝和未剪枝三种模式用一个参数mode传入建树的过程
+    post代表后剪枝，prev代表预剪枝，unpro代表不剪枝
+    '''
+    myTree = createTree(train_data,labels, data_full, labels_full,test_data,mode = "unpro")
+    # myTree = postPruningTree(myTree,train_data,test_data,labels_full)
+    # createPlot(myTree)
     print json.dumps(myTree, ensure_ascii=False, indent=4)
 
 
-
-    # df = pd.read_csv(u'data/西瓜数据集2.0.csv')
-    # data = df.values[:, 1:].tolist()
-    # data_full = data[:]
-    # labels = df.columns.values[1:-1].tolist()
-    # labels_full = labels[:]
-    #
-    # myTree = createTree(data, labels, data_full, labels_full)
-    # # createPlot(myTree)
-    # print json.dumps(myTree, ensure_ascii=False, indent=4)
 
 
 

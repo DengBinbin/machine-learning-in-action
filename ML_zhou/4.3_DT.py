@@ -119,7 +119,7 @@ def chooseBestFeatureToSplit(dataSet, labels):
     #将属性变了之后，之前的那些float型的值也要相应变为0和1
     if type(dataSet[0][bestFeature]).__name__=='float' or type(dataSet[0][bestFeature]).__name__ == 'int':
         bestSplitValue = bestSplitDict[labels[bestFeature]]
-        labels[bestFeature] = labels[bestFeature] + '<=' + str(bestSplitValue)
+        labels[bestFeature] = labels[bestFeature] + '<=' + unicode(bestSplitValue)
         for i in range(shape(dataSet)[0]):
             if dataSet[i][bestFeature] <= bestSplitValue:
                 dataSet[i][bestFeature] = 1
@@ -180,7 +180,7 @@ def createTree(dataSet,labels,data_full,labels_full):
     但是即便这样，如果训练集中没有出现触感属性值为“一般”的西瓜，但是分类时候遇到这样的测试样本，那么应该用父节点的多数类作为预测结果输出。
     '''
     uniqueVals=set(featValues)
-    if type(dataSet[0][bestFeat]).__name__=='str':
+    if type(dataSet[0][bestFeat]).__name__=='unicode':
         currentlabel=labels_full.index(labels[bestFeat])
         featValuesFull=[example[currentlabel] for example in data_full]
         uniqueValsFull=set(featValuesFull)
@@ -192,53 +192,30 @@ def createTree(dataSet,labels,data_full,labels_full):
     '''
     for value in uniqueVals:
         subLabels = labels[:]
-        if type(dataSet[0][bestFeat]).__name__ == 'str':
+        if type(dataSet[0][bestFeat]).__name__ == 'unicode':
             uniqueValsFull.remove(value)
         myTree[bestFeatLabel][value] = createTree(splitDataSet \
                                                    (dataSet, bestFeat, value), subLabels, data_full, labels_full)
 
-    if type(dataSet[0][bestFeat]).__name__ == 'str':
+    if type(dataSet[0][bestFeat]).__name__ == 'unicode':
         for value in uniqueValsFull:
             myTree[bestFeatLabel][value] = majorityCnt(classList)
     return myTree
 
 if __name__=="__main__":
     # 读入csv文件数据
-    input_path = "data/西瓜数据集3.csv"
+    input_path = "data/西瓜数据集2.0.csv"
     file = codecs.open(input_path, "r", 'utf-8')
 
     filedata = [line.strip('\n').split(',') for line in file]
     filedata = [[float(i) if '.' in i else i for i in row] for row in filedata]  # change decimal from string to float
-    dataSet = [row[1:] for row in filedata[1:]]
-
+    dataSet = [row[1:] for row in filedata[1:11]]
+    data_full = dataSet[:]
     labels = []
     for label in filedata[0][1:-1]:
         labels.append(label)
-
     labels_full = labels[:]
-    myTree = createTree(dataSet, labels, dataSet, labels_full)
-
-
+    myTree = createTree(dataSet, labels, data_full, labels_full)
     createPlot(myTree)
-    print json.dumps(myTree, ensure_ascii=False, indent=4)
-
-
-
-    # df = pd.read_csv(u'data/西瓜数据集3.csv')
-    # data = df.values[:, 1:].tolist()
-    # data_full = data[:]
-    # labels = df.columns.values[1:-1].tolist()
-    # labels_full = labels[:]
-    #
-    # myTree = createTree(data, labels, data_full, labels_full)
-    # print myTree
-    # createPlot(myTree)
-    # print json.dumps(myTree, ensure_ascii=False, indent=4)
-
-
-
-<<<<<<< HEAD
-=======
-
->>>>>>> f9e332dfdce3e838f39a93182b6938d8e4900bff
+    print json.dumps(myTree, ensure_ascii=False, indent=2)
 
